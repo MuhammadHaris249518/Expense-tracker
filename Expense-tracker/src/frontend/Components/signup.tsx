@@ -1,69 +1,118 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { z } from "zod";
+import '../index.css';
+import '../App.css';
 
-function Signup(){
-    const [email,setEmail]=useState("");
-    const[ password,setPassword]=useState("");
-    const[fname,setFname]=useState("");
-     const[lname,setLname]=useState("");
-  
-    const navigate=useNavigate();
-    function handlesubmit(){
- axios.post("http://localhost:3000/signup",{
-        email,
-        fname,
-        lname,
-        password,
+const signupSchema = z.object({
+  fname: z.string().min(2, "First name must be at least 2 characters"),
+  lname: z.string().min(2, "Last name must be at least 2 characters"),
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(6, "Password must be at least 6 characters")
+});
+
+function Signup() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [fname, setFname] = useState("");
+  const [lname, setLname] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<{ fname?: string; lname?: string; email?: string; password?: string }>({});
+  const [serverError, setServerError] = useState("");
+
+  const navigate = useNavigate();
+
+  function handlesubmit() {
+    setServerError("");
+    const validation = signupSchema.safeParse({ fname, lname, email, password });
     
-}
-   ).then((res)=>console.log("response from server",res.data),
+    if (!validation.success) {
+      const errors: Record<string, string> = {};
+      validation.error.issues.forEach((err) => {
+        if (err.path[0]) errors[err.path[0] as string] = err.message;
+      });
+      setFieldErrors(errors);
+      return;
+    }
+    
+    setFieldErrors({});
 
-   )
-   .catch((error)=>console.error("error sending data",error));
-}
-    return(
-   
- <div style={{height:"490px",margin:"100px auto",width:"400px", border:"1px solid gray",padding:"20px",boxShadow:""}}>
-    <div style={{textAlign:"center"}}><h1>Signup</h1></div>
-    <div style={{display:"flex",gap:"20px"}}>
-        <div style={{display:"flex",flexDirection:"column"}}>
-    <p style={{fontFamily:"sans-serif", whiteSpace:"nowrap",justifyContent:"center"}}>  First name</p>
-       <input  value={fname} onChange={(e)=>setFname(e.target.value)} style={{height:"30px"}} type="text"/>
-       </div>
-       <div style={{display:"flex", flexDirection:"column"}}>
-    <p style={{fontFamily:"sans-serif", whiteSpace:"nowrap"}}>Last name</p>
-  <input  value={lname} onChange={(e)=>setLname(e.target.value)} style={{height:"30px"}} type="text"/>
+    axios.post(`${import.meta.env.VITE_API_BASE_URL}/auth/signup`, {
+      email,
+      fname,
+      lname,
+      password,
+    }).then((res) => {
+      console.log("response from server", res.data);
+      if (res.data.success) {
+        navigate("/login");
+      } else {
+        setServerError(res.data.message || "Failed to sign up");
+      }
+    }).catch((error) => {
+      console.error("error sending data", error);
+      if (error.response && error.response.data && error.response.data.message) {
+        setServerError(error.response.data.message);
+      } else {
+        setServerError("A network error occurred. Please try again.");
+      }
+    });
+  }
 
-    </div>
-      
-    </div>
-    <div style={{display:"flex",flexDirection:"column"}}>
-    <p style={{fontFamily:"sans-serif", whiteSpace:"nowrap",justifyContent:"center"}} >  Email</p>
-       <input value={email} onChange={(e)=>setEmail(e.target.value)} style={{height:"30px",width:"370px"}} type="text"/>
-       </div>
-        <div style={{display:"flex",flexDirection:"column"}}>
-    <p style={{fontFamily:"sans-serif", whiteSpace:"nowrap",justifyContent:"center"}} >  Password</p>
-       <input value={password} onChange={(e)=>setPassword(e.target.value)} style={{height:"30px",width:"370px"}} type="password"/>
-       </div>
-    <div>
-        <button style={{backgroundColor:"black", color:"white", width:"380px",height:"50px",marginTop:" 30px"}}onClick={handlesubmit}>Continue </button>
-        <hr style={{marginTop:"30px",width:"374px",marginLeft:"2px"}} />
-        <p style={{textAlign:"center"}}>OR</p>
-        
-        <button style={{backgroundColor:"white", color:"black", width:"380px",height:"50px", fontFamily:"Roboto", fontSize:"20px"}}> Continue With Google</button>
-           <p style={{fontFamily:"sans-serif", whiteSpace:"nowrap",textAlign:"center"}}>Already you have an account?{""}
-            <span
-            style={{color:"blue",cursor:"pointer"}}
-            onClick={()=>navigate("/login")}>
-               Login
+  return (
+    <div className="auth-container">
+      <div className="glass-card auth-card">
+        <div style={{ textAlign: "center", marginBottom: "2rem" }}>
+          <h1 style={{ color: "var(--primary)" }}>Join Expensely</h1>
+          <p style={{ color: "var(--text-muted)" }}>Start tracking your wealth today.</p>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.5rem" }}>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="label-text">First Name</label>
+            <input className="input-field" value={fname} onChange={(e) => setFname(e.target.value)} type="text" placeholder="John" />
+            {fieldErrors.fname && <span style={{ color: "var(--error)", fontSize: "0.8rem", marginTop: "4px", display: "block" }}>{fieldErrors.fname}</span>}
+          </div>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="label-text">Last Name</label>
+            <input className="input-field" value={lname} onChange={(e) => setLname(e.target.value)} type="text" placeholder="Doe" />
+            {fieldErrors.lname && <span style={{ color: "var(--error)", fontSize: "0.8rem", marginTop: "4px", display: "block" }}>{fieldErrors.lname}</span>}
+          </div>
+        </div>
+
+        <div className="form-group">
+          <label className="label-text">Email</label>
+          <input className="input-field" value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="john@example.com" />
+          {fieldErrors.email && <span style={{ color: "var(--error)", fontSize: "0.8rem", marginTop: "4px", display: "block" }}>{fieldErrors.email}</span>}
+        </div>
+
+        <div className="form-group">
+          <label className="label-text">Password</label>
+          <input className="input-field" value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="••••••••" />
+          {fieldErrors.password && <span style={{ color: "var(--error)", fontSize: "0.8rem", marginTop: "4px", display: "block" }}>{fieldErrors.password}</span>}
+        </div>
+
+        {serverError && (
+          <div style={{ color: "var(--error)", fontSize: "0.85rem", marginTop: "1rem", textAlign: "center" }}>
+            {serverError}
+          </div>
+        )}
+
+        <button className="btn-primary" style={{ width: "100%", padding: "1rem", marginTop: "1rem" }} onClick={handlesubmit}>
+          Create Account
+        </button>
+
+        <div style={{ textAlign: "center", marginTop: "1.5rem" }}>
+          <p style={{ color: "var(--text-muted)", fontSize: "0.9rem" }}>
+            Already have an account?{" "}
+            <span style={{ color: "var(--primary)", cursor: "pointer", fontWeight: "600" }} onClick={() => navigate("/login")}>
+              Login
             </span>
-           </p>
+          </p>
+        </div>
+      </div>
     </div>
-    </div>
-    )
-
-    
-
+  );
 }
+
 export default Signup;

@@ -1,0 +1,31 @@
+# FastAPI and async framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# Google Gemini AI
+google-generativeai==0.3.0
+
+# LangChain for AI integration
+langchain==0.1.7
+langchain-google-genai==0.0.8
+
+# Database
+motor==3.3.2
+pymongo==4.6.0
+
+# Environment variables
+python-dotenv==1.0.0
+
+# PDF Generation
+reportlab==4.0.7
+
+# Task Scheduling
+APScheduler==3.10.4
+
+# HTTP Client for async requests
+aiohttp==3.9.1
+httpx==0.25.2
+
+# Email (built-in, but included for clarity)
+secure-smtplib==0.1.1
