@@ -8,16 +8,17 @@ load_dotenv()
 if not os.getenv("GEMINI_API_KEY"):
     raise ValueError("GEMINI_API_KEY not found in environment variables.")
 llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key=os.getenv("GEMINI_API_KEY"))
-async def get_transactions(user_id):
-    one_week_ago = datetime.now(timezone.utc) - timedelta(days=7)
-    transaction=[]
+async def get_transactions(user_id: str):
+    # Fetch all transactions to get accurate totals instead of just 7 days
+    # (Since total amount in DB likely represents more than recent 7 days, this matches frontend)
+    transaction = []
+    
+    cursor = db.transactions.find({
+        "user": ObjectId(user_id)
+    }).limit(100) # limit to prevent huge response, or adjust as needed
 
-    cursor=db.transactions.find({
-        "user":ObjectId(user_id),
-        "date":{"$gte":one_week_ago}
-   } )
     async for k in cursor:
-        k["_id"]=str(k["_id"])
+        k["_id"] = str(k["_id"])
         transaction.append(k)
     return transaction
 async def calcualte_summary(user_id:str):
@@ -26,7 +27,8 @@ async def calcualte_summary(user_id:str):
     total_expense=0
     for t in data:
         amount=float(t.get("amount",0))
-        if(t.get("choice")=="income"):
+        choice = t.get("choice", "").lower()
+        if choice == "income":
            total_income+=amount
         else:
            total_expense+=amount
@@ -39,11 +41,11 @@ async def calcualte_summary(user_id:str):
     }
 async def generate_ai_insights(summary):
      prompt = f"""
-    income: {summary['income']}W
-    expense: {summary['expense']}
-    balance: {summary['balance']}
+    Income: ${summary['income']}
+    Expenses: ${summary['expense']}
+    Total Balance: ${summary['balance']}
 
-    Give short financial advice.
+    Give a short, friendly, and actionable financial advice based on these numbers. Provide it in maximum 3 bullet points.
     """
     
      response=llm.invoke(prompt)

@@ -7,9 +7,9 @@ import { z } from "zod"; // IMPORT ZOD
 // Schema for an incoming transaction
 const transactionSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(100, "Title is too long").regex(/^[^<>]+$/, "Title contains invalid characters"), // Simple regex against XSS tags
-  amount: z.number({ required_error: "Amount is required", invalid_type_error: "Amount must be a number" }).positive("Amount must be positive"),
+  amount: z.coerce.number({ required_error: "Amount is required", invalid_type_error: "Amount must be a number" }).positive("Amount must be positive"),
   category: z.string().max(50).optional(),
-  date: z.string().datetime({ message: "Invalid date format" }).optional().or(z.date().optional()),
+  date: z.string().optional().or(z.date().optional()),
   choice: z.enum(["Income", "income", "Expense", "expense"]).optional()
 });
 
@@ -18,6 +18,7 @@ export const addTransaction = async (req, res) => {
     // 1. VALIDATE INCOMING DATA
     const validation = transactionSchema.safeParse(req.body);
     if (!validation.success) {
+      console.log("Validation Errors: ", validation.error.errors); // Log zod errors for debugging
       return res.status(400).json({ 
         message: "Invalid input data", 
         errors: validation.error.errors, 
@@ -51,7 +52,7 @@ export const addTransaction = async (req, res) => {
       title,
       amount,
       category: finalCategory,
-      date,
+      date: date || new Date().toISOString(), // Ensure we always have a date
       choice: choice || "Expense",
       user: userId,
     });
@@ -63,15 +64,28 @@ export const addTransaction = async (req, res) => {
       transaction
     });
   } catch (error) {
-    res.status(500).json({ message: "Error saving transaction", error: error.message, success: false });
+    // Log detailed error privately, not to user
+    console.error("Error saving transaction:", error);
+    res.status(500).json({ message: "Internal server error while saving transaction", success: false });
   }
 };
 
 export const getTransactions = async (req, res) => {
   try {
     const userId = req.user.id;
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 5;
+    
+    // Validate pagination with Zod coercion (converts strings to numbers automatically)
+    const paginationSchema = z.object({
+      page: z.coerce.number().int().positive().default(1),
+      limit: z.coerce.number().int().positive().max(100, "Maximum limit is 100").default(5)
+    });
+    
+    const validation = paginationSchema.safeParse(req.query);
+    if (!validation.success) {
+      return res.status(400).json({ message: "Invalid pagination parameters", errors: validation.error.errors, success: false });
+    }
+    
+    const { page, limit } = validation.data;
     const skip = (page - 1) * limit;
 
     // Fetch paginated transactions
@@ -136,8 +150,15 @@ export const getTransactions = async (req, res) => {
 
 export const deleteTransaction = async (req, res) => {
   try {
-    const { id } = req.params;
     const userId = req.user.id;
+
+    // Validate the Transaction ID (MongoDB object ID is a 24-character hex string)
+    const idValidation = z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid transaction ID format").safeParse(req.params.id);
+    if (!idValidation.success) {
+      return res.status(400).json({ message: "Invalid transaction ID", errors: idValidation.error.errors, success: false });
+    }
+    
+    const id = idValidation.data;
 
     const transaction = await transactions.findOneAndDelete({ _id: id, user: userId });
 

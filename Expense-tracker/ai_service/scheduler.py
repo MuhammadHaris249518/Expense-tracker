@@ -45,8 +45,15 @@ async def send_daily_reports():
                     print(f"[SCHEDULER] Report sent to {user_email}")
                 else:
                     print(f"[SCHEDULER] No email found for user {user_id}")
+                
+                # Cleanup PDF after sending
+                if os.path.exists(filepath):
+                    os.remove(filepath)
                     
             except Exception as user_error:
+                # Attempt to clean up on error
+                if 'filepath' in locals() and os.path.exists(filepath):
+                    os.remove(filepath)
                 print(f"[SCHEDULER] Error sending report for user {user.get('_id')}: {str(user_error)}")
         
         print(f"[SCHEDULER] Daily reports completed at {datetime.now()}")

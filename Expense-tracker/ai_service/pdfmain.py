@@ -18,29 +18,29 @@ def generate_pdf(summary, insights, filename="report.pdf"):
     
     title_style = ParagraphStyle(
         'CustomTitle', parent=styles['Heading1'], fontName='Helvetica-Bold',
-        fontSize=24, textColor=colors.HexColor("#2C3E50"), alignment=TA_CENTER, spaceAfter=10
+        fontSize=28, textColor=colors.HexColor("#1A237E"), alignment=TA_CENTER, spaceAfter=20
     )
     
     heading_style = ParagraphStyle(
         'CustomHeading', parent=styles['Heading2'], fontName='Helvetica-Bold',
-        fontSize=16, textColor=colors.HexColor("#34495E"), spaceBefore=20, spaceAfter=15,
-        borderPadding=10
+        fontSize=18, textColor=colors.HexColor("#283593"), spaceBefore=25, spaceAfter=15,
+        borderPadding=10, borderBottomWidth=1, borderColor=colors.lightgrey
     )
     
     normal_style = ParagraphStyle(
         'CustomNormal', parent=styles['Normal'], fontName='Helvetica',
-        fontSize=11, textColor=colors.HexColor("#333333"), leading=16, alignment=TA_JUSTIFY,
+        fontSize=12, textColor=colors.HexColor("#424242"), leading=18, alignment=TA_JUSTIFY,
     )
 
     date_style = ParagraphStyle(
         'DateStyle', parent=styles['Normal'], fontName='Helvetica-Oblique',
-        fontSize=10, textColor=colors.gray, alignment=TA_CENTER, spaceAfter=30
+        fontSize=11, textColor=colors.gray, alignment=TA_CENTER, spaceAfter=35
     )
     
     content = []
     
     # Title
-    content.append(Paragraph("Financial Summary Report", title_style))
+    content.append(Paragraph("Smart Financial Summary", title_style))
     current_date = datetime.datetime.now().strftime("%B %d, %Y")
     content.append(Paragraph(f"Generated on {current_date}", date_style))
     
@@ -65,23 +65,23 @@ def generate_pdf(summary, insights, filename="report.pdf"):
             ['Net Balance', str(summary.get('balance', 0))]
         ]
 
-    summary_table = Table(table_data, colWidths=[220, 180])
+    summary_table = Table(table_data, colWidths=[240, 200])
     summary_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#2980B9")),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#3F51B5")),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
         ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 12),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
-        ('TOPPADDING', (0, 0), (-1, 0), 10),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor("#F8F9F9")),
-        ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+        ('FONTSIZE', (0, 0), (-1, 0), 14),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('TOPPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor("#E8EAF6")),
+        ('TEXTCOLOR', (0, 1), (-1, -1), colors.HexColor("#212121")),
         ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 1), (-1, -1), 11),
+        ('FONTSIZE', (0, 1), (-1, -1), 12),
         ('GRID', (0, 0), (-1, -1), 1, colors.white),
-        ('PADDING', (0, 0), (-1, -1), 10),
-        ('LINEBELOW', (0, -1), (-1, -1), 2, colors.HexColor("#2980B9")) # Accent line at bottom
+        ('PADDING', (0, 0), (-1, -1), 12),
+        ('LINEBELOW', (0, -1), (-1, -1), 2, colors.HexColor("#3F51B5")) # Accent line at bottom
     ]))
     
     content.append(summary_table)

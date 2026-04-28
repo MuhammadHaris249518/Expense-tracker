@@ -116,22 +116,30 @@
   justify-content: space-between;
   align-items: center;
   padding: 1.25rem;
+  border-left: 4px solid var(--primary);
+  border-radius: var(--radius-md);
   transition: var(--transition);
+  background: white;
+  box-shadow: var(--shadow-sm);
 }
 
 .transaction-item:hover {
-  transform: translateX(4px);
-  background: rgba(255, 255, 255, 0.9);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 .item-info h4 {
   font-size: 1.1rem;
   margin-bottom: 0.25rem;
+  color: var(--text-main);
+  font-weight: 600;
 }
 
 .item-info span {
   font-size: 0.85rem;
   color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .item-amount {

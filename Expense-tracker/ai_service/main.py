@@ -1,5 +1,8 @@
 from fastapi.responses import FileResponse
-from fastapi import FastAPI
+from fastapi import FastAPI, BackgroundTasks, Request
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from pydantic import BaseModel
 import os
 from dotenv import load_dotenv
@@ -7,7 +10,6 @@ from google import genai
 from tools import calcualte_summary,generate_ai_insights
 from pdfmain import generate_pdf
 from email_service import sendEmail
-from datetime import datetime
 from contextlib import asynccontextmanager
 from scheduler import start_scheduler
 from db import db
@@ -31,6 +33,11 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+# Setup SlowAPI Limiter (Tracking by IP address)
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler) # type: ignore
+
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 class expenseTra(BaseModel):
@@ -50,7 +57,8 @@ async def get_user_email(user_id: str) -> str:
         raise
 
 @app.post("/category")
-async def generateresponse(item: expenseTra):
+@limiter.limit("20/minute") # Allow 20 quick categorizations per minute per user
+async def generateresponse(item: expenseTra, request: Request):
     try:
         prompt = f"""
         Categorize this expense: {item.title}
@@ -72,16 +80,24 @@ async def generateresponse(item: expenseTra):
 
     except Exception as e:
         return {"error": str(e)}
+
 @app.get("/download-report")
-async def downloadreport(user_id: str):
+@limiter.limit("5/minute") # Strict limit on resource intensive PDF generation
+async def downloadreport(user_id: str, background_tasks: BackgroundTasks, request: Request):
       summary=await calcualte_summary(user_id)
       insights=await generate_ai_insights(summary)
       from datetime import datetime
-      filename = f"report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+      filename = f"report_{user_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
       filepath=generate_pdf(summary,insights,filename)
+      
+      # Schedule file deletion after it is returned to the user
+      background_tasks.add_task(os.remove, filepath)
+      
       return FileResponse(filepath,media_type="application/pdf",filename="report.pdf")
+
 @app.get("/send-report")
-async def send_report(user_id: str):
+@limiter.limit("5/minute") # Strict limit on email sending
+async def send_report(user_id: str, background_tasks: BackgroundTasks, request: Request):
     try:
         # Get user email from database
         user_email = await get_user_email(user_id)
@@ -94,7 +110,8 @@ async def send_report(user_id: str):
         insights = await generate_ai_insights(summary)
 
         # 3. PDF
-        filename = f"report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        from datetime import datetime
+        filename = f"report_{user_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         filepath = generate_pdf(summary, insights, filename)
 
         # 4. email - Send to user's email, not hardcoded
@@ -105,9 +122,16 @@ async def send_report(user_id: str):
             file_path=filepath
         )
         
+        # Delete the file immediately after sending the email
+        if os.path.exists(filepath):
+            os.remove(filepath)
+        
         print(f"[REPORT] Report successfully sent to {user_email}")
         return {"status": "sent", "email": user_email}
 
     except Exception as e:
         print(f"[ERROR] Failed to send report: {str(e)}")
+        # Attempt to clean up even if sending failed
+        if 'filepath' in locals() and os.path.exists(filepath):
+            os.remove(filepath)
         return {"error": str(e)}
